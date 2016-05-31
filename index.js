@@ -13,15 +13,13 @@ module.exports = function () {
   function write (buf, enc, next) {
     for (var i = 0; i < buf.length; i++) {
       if (pending > 0) {
-        console.log('PENDING', pending)
         var n = Math.min(buf.length - i, pending)
-        console.log('n=', n)
         buffers.push(buf.slice(i, i+n))
         pending -= n
         i += n
         pos += n
         if (pending === 0) {
-          console.log(buffers)
+          flushMarker.call(this, state, buffers)
           buffers = []
         }
         continue
@@ -72,19 +70,41 @@ module.exports = function () {
             'in jfif-app0, expected 0x00, received: ' + hexb(b)))
         }
         if (++offset === 2) {
-          console.log('ok...', s1, s2)
           pending = s1*256 + s2 // big endian 16-bit integer
-          console.log('SET PENDING', pending)
         }
       } else if (state === 'jfxx-app0') {
-        console.log('jfxx...')
+        //console.log('jfxx...')
       } else {
-        console.log('state=', state)
+        //console.log('state=', state)
       }
       pos++
     }
     if (pos > 2 && !started) {
       return next(new Error('start of image not found'))
+    }
+  }
+  function flushMarker (state, buffers) {
+    if (state === 'jfif-app0') {
+      var buf = buffers.length === 1 ? buffers[0] : Buffer.concat(buffers)
+      var units = 'unknown'
+      if (buf[2] === 0) units = 'aspect'
+      else if (buf[2] === 1) units = 'pixels per inch'
+      else if (buf[2] === 2) units = 'pixels per cm'
+
+      this.push({
+        type: 'JFIF-APP0',
+        version: buf[0] + '.' + buf[1], // major.minor
+        density: {
+          units: units,
+          x: buf.readUInt16BE(3),
+          y: buf.readUInt16BE(5)
+        },
+        thumbnail: {
+          x: buf[7],
+          y: buf[8],
+          data: buf.slice(9, 9+3*buf[7]*buf[8])
+        }
+      })
     }
   }
 }
