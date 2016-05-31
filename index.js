@@ -16,12 +16,13 @@ module.exports = function () {
         var n = Math.min(buf.length - i, pending)
         buffers.push(buf.slice(i, i+n))
         pending -= n
-        i += n
-        pos += n
         if (pending === 0) {
           flushMarker.call(this, state, buffers)
+          state = 'ff'
           buffers = []
         }
+        i += n - 1
+        pos += n
         continue
       }
       var b = buf[i]
@@ -70,12 +71,21 @@ module.exports = function () {
             'in jfif-app0, expected 0x00, received: ' + hexb(b)))
         }
         if (++offset === 2) {
-          pending = s1*256 + s2 // big endian 16-bit integer
+          pending = s1*256 + s2 - 7
         }
       } else if (state === 'jfxx-app0') {
-        //console.log('jfxx...')
+        if (offset === 0 && b !== 0x58) {
+          return next(new Error(
+            'in jfxx-app0, expected 0x58, received: ' + hexb(b)))
+        } else if (offset === 0 && b !== 0x00) {
+          return next(new Error(
+            'in jfxx-app0, expected 0x00, received: ' + hexb(b)))
+        }
+        if (++offset === 2) {
+          pending = s1*256 + s2 - 7
+        }
       } else {
-        //console.log('state=', state)
+        console.log('state=', state)
       }
       pos++
     }
@@ -90,7 +100,6 @@ module.exports = function () {
       if (buf[2] === 0) units = 'aspect'
       else if (buf[2] === 1) units = 'pixels per inch'
       else if (buf[2] === 2) units = 'pixels per cm'
-
       this.push({
         type: 'JFIF-APP0',
         version: buf[0] + '.' + buf[1], // major.minor
@@ -103,6 +112,20 @@ module.exports = function () {
           x: buf[7],
           y: buf[8],
           data: buf.slice(9, 9+3*buf[7]*buf[8])
+        }
+      })
+    } else if (state === 'jfxx-app0') {
+      var buf = buffers.length === 1 ? buffers[0] : Buffer.concat(buffers)
+      var format = 'unknown'
+      if (buf[0] === 0x10) format = 'JPEG'
+      else if (buf[0] === 0x11) format = 'PAL'
+      else if (buf[0] === 0x12) format = 'RGB'
+
+      this.push({
+        type: 'JFXX-APP0',
+        thumbnail: {
+          format: format
+          //data: ...
         }
       })
     }
