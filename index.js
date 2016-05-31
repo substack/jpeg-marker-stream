@@ -141,7 +141,9 @@ module.exports = function () {
       })
     } else if (state === 'exif') {
       var buf = buffers.length === 1 ? buffers[0] : Buffer.concat(buffers)
-      this.push(parseExif(buf))
+      var data = parseExif(buf)
+      data.type = 'EXIF'
+      this.push(data)
     }
   }
 }
