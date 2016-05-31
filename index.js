@@ -1,4 +1,5 @@
 var through = require('through2')
+var parseExif = require('exif-reader')
 
 module.exports = function () {
   var offset = 0
@@ -31,16 +32,20 @@ module.exports = function () {
       } else if (state === 'ff') {
         state = 'code'
       } else if (state === 'code') {
+        offset = 0
         if (b === 0xd8) { // SOI
           started = true
           state = 'ff'
         } else if (b === 0xe0) { // JF{IF,XX}-APP0
           state = 'app0'
-          offset = 0
         } else if (b === 0xda) { // SOS
           state = 'sos'
         } else if (b === 0xd9) { // EOI
           state = 'eoi'
+        } else if (b === 0xe1) { // EXIF
+          state = 'exif'
+        } else if (b === 0xdb) { // ???
+          state = '???'
         } else {
           return next(new Error('unknown code: ' + hexb(b)))
         }
@@ -84,8 +89,14 @@ module.exports = function () {
         if (++offset === 2) {
           pending = s1*256 + s2 - 7
         }
+      } else if (state === 'exif') {
+        if (offset === 0) s1 = b
+        else if (offset === 1) s2 = b
+        if (++offset === 2) {
+          pending = s1*256 + s2 - 4
+        }
       } else {
-        console.log('state=', state)
+        //...
       }
       pos++
     }
@@ -128,6 +139,9 @@ module.exports = function () {
           //data: ...
         }
       })
+    } else if (state === 'exif') {
+      var buf = buffers.length === 1 ? buffers[0] : Buffer.concat(buffers)
+      this.push(parseExif(buf))
     }
   }
 }
