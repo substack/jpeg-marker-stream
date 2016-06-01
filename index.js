@@ -18,8 +18,7 @@ module.exports = function () {
         buffers.push(buf.slice(i, i+n))
         pending -= n
         if (pending === 0) {
-          flushMarker.call(this, state, buffers)
-          state = 'ff'
+          state = flushMarker.call(this, state, buffers)
           buffers = []
         }
         i += n - 1
@@ -27,7 +26,9 @@ module.exports = function () {
         continue
       }
       var b = buf[i]
-      if (state === 'ff' && b !== 0xff) {
+      if (state === 'data') {
+        //...
+      } if (state === 'ff' && b !== 0xff) {
         return next(new Error('expected 0xff, received: ' + hexb(b)))
       } else if (state === 'ff') {
         state = 'code'
@@ -101,13 +102,9 @@ module.exports = function () {
         if (++offset === 2) {
           pending = s1*256 + s2 - 7
         }
-      } else if (state === 'app1' || state === 'app2') {
-        if (offset === 0) s1 = b
-        else if (offset === 1) s2 = b
-        if (++offset === 2) {
-          pending = s1*256 + s2 - 2
-        }
-      } else if (state === '0xfe') { // ???
+      } else if (state === 'app1' || state === 'app2'
+      || state === '0xfe' || state === 'dqt' || state === 'dht'
+      || state === 'dri' || state === 'sof' || state === 'sos') {
         if (offset === 0) s1 = b
         else if (offset === 1) s2 = b
         if (++offset === 2) {
@@ -164,7 +161,32 @@ module.exports = function () {
       this.push({
         type: 'FPXR'
       })
+    } else if (state === 'dqt') {
+      this.push({
+        type: 'DQT'
+      })
+    } else if (state === 'dht') {
+      this.push({
+        type: 'DHT'
+      })
+    } else if (state === 'sos') {
+      this.push({
+        type: 'SOS',
+        start: buf[7],
+        end: buf[8]
+      })
+      return 'data'
+    } else if (state === 'sof') {
+      this.push({
+        type: 'SOF',
+        precision: buf[0],
+        verticalLines: buf.readUInt16BE(1),
+        horizontalLines: buf.readUInt16BE(3),
+        H0: Math.floor(buf[7] / 16),
+        V0: buf[7] % 16
+      })
     }
+    return 'ff'
   }
 }
 
