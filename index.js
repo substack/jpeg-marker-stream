@@ -42,10 +42,22 @@ module.exports = function () {
           state = 'sos'
         } else if (b === 0xd9) { // EOI
           state = 'eoi'
-        } else if (b === 0xe1) { // EXIF
-          state = 'exif'
-        } else if (b === 0xdb) { // ???
-          state = '???'
+        } else if (b === 0xe1) { // APP1
+          state = 'app1'
+        } else if (b === 0xe2) { // APP2
+          state = 'app2'
+        } else if (b === 0xdb) { // DQT
+          state = 'dqt'
+        } else if (b === 0xc4) { // DHT
+          state = 'dht'
+        } else if (b === 0xdd) { // DRI
+          state = 'dri'
+        } else if (b === 0xc0) { // SOF
+          state = 'sof'
+        } else if (b === 0xda) { // SOS
+          state = 'sos'
+        } else if (b === 0xfe) { // ???
+          state = '0xfe'
         } else {
           return next(new Error('unknown code: ' + hexb(b)))
         }
@@ -89,11 +101,17 @@ module.exports = function () {
         if (++offset === 2) {
           pending = s1*256 + s2 - 7
         }
-      } else if (state === 'exif') {
+      } else if (state === 'app1' || state === 'app2') {
         if (offset === 0) s1 = b
         else if (offset === 1) s2 = b
         if (++offset === 2) {
-          pending = s1*256 + s2 - 4
+          pending = s1*256 + s2 - 2
+        }
+      } else if (state === '0xfe') { // ???
+        if (offset === 0) s1 = b
+        else if (offset === 1) s2 = b
+        if (++offset === 2) {
+          pending = s1*256 + s2 - 2
         }
       } else {
         //...
@@ -105,14 +123,14 @@ module.exports = function () {
     }
   }
   function flushMarker (state, buffers) {
+    var buf = buffers.length === 1 ? buffers[0] : Buffer.concat(buffers)
     if (state === 'jfif-app0') {
-      var buf = buffers.length === 1 ? buffers[0] : Buffer.concat(buffers)
       var units = 'unknown'
       if (buf[2] === 0) units = 'aspect'
       else if (buf[2] === 1) units = 'pixels per inch'
       else if (buf[2] === 2) units = 'pixels per cm'
       this.push({
-        type: 'JFIF-APP0',
+        type: 'JFIF',
         version: buf[0] + '.' + buf[1], // major.minor
         density: {
           units: units,
@@ -126,24 +144,26 @@ module.exports = function () {
         }
       })
     } else if (state === 'jfxx-app0') {
-      var buf = buffers.length === 1 ? buffers[0] : Buffer.concat(buffers)
       var format = 'unknown'
       if (buf[0] === 0x10) format = 'JPEG'
       else if (buf[0] === 0x11) format = 'PAL'
       else if (buf[0] === 0x12) format = 'RGB'
 
       this.push({
-        type: 'JFXX-APP0',
+        type: 'JFXX',
         thumbnail: {
           format: format
           //data: ...
         }
       })
-    } else if (state === 'exif') {
-      var buf = buffers.length === 1 ? buffers[0] : Buffer.concat(buffers)
+    } else if (state === 'app1') {
       var data = parseExif(buf)
       data.type = 'EXIF'
       this.push(data)
+    } else if (state === 'app2') {
+      this.push({
+        type: 'FPXR'
+      })
     }
   }
 }
