@@ -1,6 +1,19 @@
 # parse-jpeg-stream
 
-parse markers from a JPEG, including EXIF data
+parse markers from a JPEG:
+
+* SOI
+* JFIF
+* JFXX
+* EXIF
+* FPXR
+* DQT
+* DHT
+* DRI
+* SOF
+* SOS
+* DATA
+* EOI
 
 # example
 
@@ -47,9 +60,11 @@ var jpeg = require('parse-jpeg-stream')
 
 ## var stream = jpeg()
 
-Return a transform stream `jpeg`.
+Return a transform stream `jpeg` that takes a binary stream of jpeg data as
+input and produces an object stream as output with the object types described
+below.
 
-## output types
+## output object types
 
 ### SOI
 
@@ -64,12 +79,24 @@ start of image
 * `marker.type = 'JFIF'`
 * `marker.start` - offset of first byte
 * `marker.end` - offset of last byte + 1
+* `marker.version` - jfif version string (`'major.minor'`)
+* `marker.density.units` - `'aspect'`, `'pixels per inch'` or `'pixels per cm'`
+* `marker.density.x` - x density
+* `marker.density.y` - y density
+* `marker.thumbnail.width` - thumbnail width
+* `marker.thumbnail.height` - thumbnail height
+* `marker.thumbnail.data` - thumbnail data as a Buffer
 
 ### JFXX (APP0)
 
 * `marker.type = 'JFXX'`
 * `marker.start` - offset of first byte
 * `marker.end` - offset of last byte + 1
+* `marker.thumbnail.format` - `'JPEG'`, `'PAL'`, or `'RGB'`
+* `marker.thumbnail.width` - thumbnail width (not available for `'JPEG'`
+* `marker.thumbnail.height` - thumbnail height (not available for `'JPEG'`)
+* `marker.thumbnail.data` - thumbnail data as a Buffer
+* `marker.thumbnail.palette` - thumbnail palette (for `PAL` thumbnails)
 
 ### EXIF (APP1)
 
@@ -78,6 +105,9 @@ exif data
 * `marker.type = 'EXIF'`
 * `marker.start` - offset of first byte
 * `marker.end` - offset of last byte + 1
+* `marker.image` - exif image data
+* `marker.thumbnail` - exif thumbnail data
+* `marker.exif` - other exif data
 
 ### FPXR (APP2)
 
@@ -103,6 +133,15 @@ huffman table
 * `marker.type = 'DHT'`
 * `marker.start` - offset of first byte
 * `marker.end` - offset of last byte + 1
+* `marker.data` - raw huffman data
+
+### DRI
+
+define restart interoperability
+
+* `marker.type = 'DRI'`
+* `marker.start` - offset of first byte
+* `marker.end` - offset of last byte + 1
 
 ### SOS
 
@@ -119,6 +158,11 @@ start of frame
 * `marker.type = 'SOF'`
 * `marker.start` - offset of first byte
 * `marker.end` - offset of last byte + 1
+* `marker.precision` - bits of precision (`8`)
+* `marker.width` - width of image (may or may not include padding)
+* `marker.height` - height of image (may or may not include padding)
+* `marker.H0` - `2`
+* `marker.V0` - `1` or `2`
 
 ### EOI
 

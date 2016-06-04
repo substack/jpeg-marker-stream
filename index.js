@@ -182,7 +182,8 @@ module.exports = function () {
     } else if (state === 'app1') {
       var row = parseExif(buf)
       row.type = 'EXIF'
-      row.offset = pos - 2
+      row.start = pos - 2
+      row.end = pos + buf.length
       this.push(row)
     } else if (state === 'app2') {
       this.push({
@@ -209,7 +210,8 @@ module.exports = function () {
       this.push({
         type: 'DHT',
         start: pos - 2,
-        end: pos + buf.length
+        end: pos + buf.length,
+        data: buf
       })
     } else if (state === 'dri') {
       this.push({
