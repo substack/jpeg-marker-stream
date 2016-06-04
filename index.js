@@ -20,7 +20,7 @@ module.exports = function () {
       var b = buf[i]
       if (state === 'data') {
         if (b === 0xff) {
-          buffers.push(buf.slice(j+2, i))
+          buffers.push(buf.slice(j, i))
           state = flushMarker.call(this, state, buffers)
           buffers = []
           j = i
@@ -53,6 +53,7 @@ module.exports = function () {
         offset = 0
         if (b === 0x00) { // data
           state = 'data'
+          j = i + 1
         } else if (b === 0xd8) { // SOI
           started = true
           state = 'ff'
