@@ -39,7 +39,7 @@ module.exports = function () {
           buffers = []
         }
         i += n - 1
-        pos += n + 2
+        pos += n
         if (data > 0) {
           return write(buf.slice(i), enc, next)
         }
