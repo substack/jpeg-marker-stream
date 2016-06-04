@@ -41,7 +41,7 @@ module.exports = function () {
         } else if (b === 0xd8) { // SOI
           started = true
           state = 'ff'
-          this.push({ type: 'SOI', offset: offset })
+          this.push({ type: 'SOI', start: offset, end: offset+2 })
         } else if (b === 0xe0) { // JF{IF,XX}-APP0
           state = 'app0'
         } else if (b === 0xda) { // SOS
@@ -111,7 +111,8 @@ module.exports = function () {
       else if (buf[2] === 2) units = 'pixels per cm'
       this.push({
         type: 'JFIF',
-        offset: pos - 9,
+        start: pos - 9,
+        end: pos - 9 + buf.length,
         version: buf[0] + '.' + buf[1], // major.minor
         density: {
           units: units,
@@ -132,7 +133,8 @@ module.exports = function () {
 
       this.push({
         type: 'JFXX',
-        offset: pos - 9,
+        start: pos - 9,
+        end: pos - 9 + buf.length,
         thumbnail: {
           format: format
           //data: ...
@@ -146,33 +148,44 @@ module.exports = function () {
     } else if (state === 'app2') {
       this.push({
         type: 'FPXR',
-        offset: pos - 2
+        start: pos - 2,
+        end: pos - 2 + buf.length
       })
     } else if (state === 'dqt') {
+      var tables = []
+      for (var i = 1; i < buf.length; i += 0x41) {
+        tables.push(buf.slice(i, i+0x40))
+      }
       this.push({
         type: 'DQT',
-        offset: pos - 2
+        start: pos - 2,
+        end: pos - 2 + buf.length,
+        tables: tables
       })
     } else if (state === 'dht') {
       this.push({
         type: 'DHT',
-        offset: pos - 2
+        start: pos - 2,
+        end: pos - 2 + buf.length
       })
     } else if (state === 'dri') {
       this.push({
         type: 'DRI',
-        offset: pos - 2
+        start: pos - 2,
+        end: pos - 2 + buf.length
       })
     } else if (state === 'sos') {
       this.push({
         type: 'SOS',
-        offset: pos - 2
+        start: pos - 2,
+        end: pos - 2 + buf.length
       })
       return 'data'
     } else if (state === 'sof') {
       this.push({
         type: 'SOF',
-        offset: pos - 2,
+        start: pos - 2,
+        end: pos - 2 + buf.length,
         precision: buf[0],
         verticalLines: buf.readUInt16BE(1),
         horizontalLines: buf.readUInt16BE(3),
@@ -182,7 +195,8 @@ module.exports = function () {
     } else if (state === 'eoi') {
       this.push({
         type: 'EOI',
-        offset: pos - 2
+        start: pos - 2,
+        end: pos - 2 + buf.length,
       })
     }
     return 'ff'
