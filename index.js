@@ -10,9 +10,32 @@ module.exports = function () {
   var state = 'ff'
   var started = false
   var dqtSeq = 0
+  var data = 0
 
   return through.obj(write)
   function write (buf, enc, next) {
+    if (data >= buf.length) {
+      this.push({
+        type: 'DATA',
+        start: pos,
+        end: pos + buf.length,
+        data: buf
+      })
+      data -= buf.length
+      pos += buf.length
+      if (data === 0) state = 'ff'
+      return next()
+    } else if (data > 0) {
+      this.push({
+        type: 'DATA',
+        start: pos,
+        end: pos + data,
+        data: buf.slice(0, data)
+      })
+      pos += data
+      buf = buf.slice(data)
+      data = 0
+    }
     for (var i = 0; i < buf.length; i++) {
       if (pending > 0) {
         var n = Math.min(buf.length - i, pending)
@@ -27,11 +50,7 @@ module.exports = function () {
         continue
       }
       var b = buf[i]
-      if (state === 'data') {
-        if (b === 0xff) {
-          state = 'code'
-        }
-      } else if (state === 'ff' && b !== 0xff) {
+      if (state === 'ff' && b !== 0xff) {
         return next(new Error('expected 0xff, received: ' + hexb(b)))
       } else if (state === 'ff') {
         state = 'code'
@@ -192,8 +211,8 @@ module.exports = function () {
         start: pos - 2,
         end: pos - 2 + buf.length,
         precision: buf[0],
-        verticalLines: buf.readUInt16BE(1),
-        horizontalLines: buf.readUInt16BE(3),
+        width: buf.readUInt16BE(3),
+        height: buf.readUInt16BE(1),
         H0: Math.floor(buf[7] / 16),
         V0: buf[7] % 16
       })
