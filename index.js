@@ -20,7 +20,7 @@ module.exports = function () {
       var b = buf[i]
       if (state === 'data') {
         if (b === 0xff) {
-          buffers.push(buf.slice(j, i))
+          buffers.push(buf.slice(j+2, i))
           state = flushMarker.call(this, state, buffers)
           buffers = []
           j = i
