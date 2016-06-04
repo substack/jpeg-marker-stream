@@ -11,45 +11,40 @@ module.exports = function () {
   var started = false
   var dqtSeq = 0
   var data = 0
+  var width = -1, height = -1
 
-  return through.obj(write)
+  return through.obj(write, end)
   function write (buf, enc, next) {
-    if (data >= buf.length) {
-      this.push({
-        type: 'DATA',
-        start: pos,
-        end: pos + buf.length,
-        data: buf
-      })
-      data -= buf.length
-      pos += buf.length
-      if (data === 0) state = 'ff'
-      return next()
-    } else if (data > 0) {
-      this.push({
-        type: 'DATA',
-        start: pos,
-        end: pos + data,
-        data: buf.slice(0, data)
-      })
-      pos += data
-      buf = buf.slice(data)
-      data = 0
-    }
+    var j = 0
     for (var i = 0; i < buf.length; i++) {
+      var b = buf[i]
+      if (state === 'data') {
+        if (b === 0xff) {
+          buffers.push(buf.slice(j, i))
+          state = flushMarker.call(this, state, buffers)
+          buffers = []
+          j = i
+          state = 'code'
+        }
+        pos++
+        continue
+      }
       if (pending > 0) {
         var n = Math.min(buf.length - i, pending)
         buffers.push(buf.slice(i, i+n))
         pending -= n
         if (pending === 0) {
           state = flushMarker.call(this, state, buffers)
+          if (state === 'data') j = i
           buffers = []
         }
         i += n - 1
         pos += n + 2
+        if (data > 0) {
+          return write(buf.slice(i), enc, next)
+        }
         continue
       }
-      var b = buf[i]
       if (state === 'ff' && b !== 0xff) {
         return next(new Error('expected 0xff, received: ' + hexb(b)))
       } else if (state === 'ff') {
@@ -61,7 +56,7 @@ module.exports = function () {
         } else if (b === 0xd8) { // SOI
           started = true
           state = 'ff'
-          this.push({ type: 'SOI', start: offset, end: offset+2 })
+          this.push({ type: 'SOI', start: pos-1, end: pos+1 })
         } else if (b === 0xe0) { // JF{IF,XX}-APP0
           state = 'app0'
         } else if (b === 0xda) { // SOS
@@ -118,13 +113,27 @@ module.exports = function () {
       }
       pos++
     }
+    if (state === 'data') {
+      buffers.push(buf.slice(j, i))
+    }
     if (pos > 2 && !started) {
       return next(new Error('start of image not found'))
     } else next()
   }
+  function end (next) {
+    flushMarker.call(this, state, buffers)
+    next()
+  }
   function flushMarker (state, buffers) {
     var buf = buffers.length === 1 ? buffers[0] : Buffer.concat(buffers)
-    if (state === 'jfif-app0') {
+    if (state === 'data') {
+      this.push({
+        type: 'DATA',
+        start: pos - 2,
+        end: pos + buf.length,
+        data: buf
+      })
+    } else if (state === 'jfif-app0') {
       var units = 'unknown'
       if (buf[2] === 0) units = 'aspect'
       else if (buf[2] === 1) units = 'pixels per inch'
@@ -132,7 +141,7 @@ module.exports = function () {
       this.push({
         type: 'JFIF',
         start: pos - 9,
-        end: pos - 9 + buf.length,
+        end: pos + buf.length,
         version: buf[0] + '.' + buf[1], // major.minor
         density: {
           units: units,
@@ -154,22 +163,22 @@ module.exports = function () {
       this.push({
         type: 'JFXX',
         start: pos - 9,
-        end: pos - 9 + buf.length,
+        end: pos + buf.length,
         thumbnail: {
           format: format
           //data: ...
         }
       })
     } else if (state === 'app1') {
-      var data = parseExif(buf)
-      data.type = 'EXIF'
-      data.offset = pos - 2
-      this.push(data)
+      var row = parseExif(buf)
+      row.type = 'EXIF'
+      row.offset = pos - 2
+      this.push(row)
     } else if (state === 'app2') {
       this.push({
         type: 'FPXR',
         start: pos - 2,
-        end: pos - 2 + buf.length
+        end: pos + buf.length
       })
     } else if (state === 'dqt') {
       var tables = []
@@ -183,36 +192,38 @@ module.exports = function () {
       this.push({
         type: 'DQT',
         start: pos - 2,
-        end: pos - 2 + buf.length,
+        end: pos + buf.length,
         tables: tables
       })
     } else if (state === 'dht') {
       this.push({
         type: 'DHT',
         start: pos - 2,
-        end: pos - 2 + buf.length
+        end: pos + buf.length
       })
     } else if (state === 'dri') {
       this.push({
         type: 'DRI',
         start: pos - 2,
-        end: pos - 2 + buf.length
+        end: pos + buf.length
       })
     } else if (state === 'sos') {
       this.push({
         type: 'SOS',
         start: pos - 2,
-        end: pos - 2 + buf.length
+        end: pos + buf.length
       })
       return 'data'
     } else if (state === 'sof') {
+      width = buf.readUInt16BE(3)
+      height = buf.readUInt16BE(1)
       this.push({
         type: 'SOF',
         start: pos - 2,
-        end: pos - 2 + buf.length,
+        end: pos + buf.length,
         precision: buf[0],
-        width: buf.readUInt16BE(3),
-        height: buf.readUInt16BE(1),
+        width: width,
+        height: height,
         H0: Math.floor(buf[7] / 16),
         V0: buf[7] % 16
       })
@@ -220,7 +231,7 @@ module.exports = function () {
       this.push({
         type: 'EOI',
         start: pos - 2,
-        end: pos - 2 + buf.length,
+        end: pos + buf.length,
       })
     }
     return 'ff'
