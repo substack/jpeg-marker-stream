@@ -152,8 +152,12 @@ module.exports = function () {
         end: pos - 2 + buf.length
       })
     } else if (state === 'dqt') {
-      var tables = []
+      var tables = [], j = 0
       for (var i = 1; i < buf.length; i += 0x41) {
+        if (buf[i-1] !== j++) {
+          return this.emit('error', new Error('unexpected DQT byte at ' +
+            (offset+i-1) + ' (' + i + '): ' + buf[i-1]))
+        }
         tables.push(buf.slice(i, i+0x40))
       }
       this.push({
