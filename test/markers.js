@@ -5,7 +5,7 @@ var path = require('path')
 var collect = require('collect-stream')
 
 test('markers', function (t) {
-  t.plan(11)
+  t.plan(12)
   var file = path.join(__dirname, 'files/cactus.jpg')
   collect(fs.createReadStream(file).pipe(jpeg()), function (err, markers) {
     t.error(err)
@@ -15,6 +15,28 @@ test('markers', function (t) {
       'DATA', 'DATA', 'DATA', 'DATA', 'DATA', 'DATA', 'DATA', 'DATA',
       'EOI'
     ], 'expected marker types')
+    t.deepEqual(markers.map(moffset), [
+      [0,2],
+      [2,20],
+      [27,29119],
+      [29121,29188],
+      [29190,29257],
+      [29259,29276],
+      [29278,29303],
+      [29305,29357],
+      [29359,29382],
+      [29384,29411],
+      [29413,29425],
+      [29436,29461],
+      [29514,29592],
+      [29627,29740],
+      [29890,30153],
+      [30613,31336],
+      [31514,32415],
+      [32301,33088],
+      [32374,32447],
+      [32376,32378]
+    ], 'expected marker offsets')
 
     markers.forEach(function (marker) {
       if (marker.type === 'EXIF') {
@@ -34,3 +56,4 @@ test('markers', function (t) {
 })
 
 function mtype (marker) { return marker.type }
+function moffset (marker) { return [marker.start,marker.end] }
