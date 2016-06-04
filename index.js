@@ -10,7 +10,6 @@ module.exports = function () {
   var state = 'ff'
   var started = false
   var dqtSeq = 0
-  var data = 0
   var width = -1, height = -1
 
   return through.obj(write, end)
@@ -40,9 +39,6 @@ module.exports = function () {
         }
         i += n - 1
         pos += n
-        if (data > 0) {
-          return write(buf.slice(i), enc, next)
-        }
         continue
       }
       if (state === 'ff' && b !== 0xff) {
@@ -150,25 +146,38 @@ module.exports = function () {
           y: buf.readUInt16BE(5)
         },
         thumbnail: {
-          x: buf[7],
-          y: buf[8],
+          width: buf[7],
+          height: buf[8],
           data: buf.slice(9, 9+3*buf[7]*buf[8])
         }
       })
     } else if (state === 'jfxx-app0') {
-      var format = 'unknown'
-      if (buf[0] === 0x10) format = 'JPEG'
-      else if (buf[0] === 0x11) format = 'PAL'
-      else if (buf[0] === 0x12) format = 'RGB'
-
+      var thumb = {
+        format: 'unknown',
+        width: 0,
+        height: 0,
+        data: null
+      }
+      if (buf[0] === 0x10) {
+        thumb.format = 'JPEG'
+        thumb.data = buf.slice(1)
+      } else if (buf[0] === 0x11) {
+        thumb.format = 'PAL'
+        thumb.width = buf[1]
+        thumb.height = buf[2]
+        thumb.palette = buf.slice(3, 3+768)
+        thumb.data = buf.slice(3+768 + thumb.width*thumb.height)
+      } else if (buf[0] === 0x12) {
+        thumb.format = 'RGB'
+        thumb.width = buf[1]
+        thumb.height = buf[1]
+        thumb.data = 3*thumb.width*thumb.height
+      }
       this.push({
         type: 'JFXX',
         start: pos - 9,
         end: pos + buf.length,
-        thumbnail: {
-          format: format
-          //data: ...
-        }
+        thumbnail: thumb
       })
     } else if (state === 'app1') {
       var row = parseExif(buf)
