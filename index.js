@@ -27,16 +27,21 @@ module.exports = function () {
       }
       var b = buf[i]
       if (state === 'data') {
-        //...
-      } if (state === 'ff' && b !== 0xff) {
+        if (b === 0xff) {
+          state = 'code'
+        }
+      } else if (state === 'ff' && b !== 0xff) {
         return next(new Error('expected 0xff, received: ' + hexb(b)))
       } else if (state === 'ff') {
         state = 'code'
       } else if (state === 'code') {
         offset = 0
-        if (b === 0xd8) { // SOI
+        if (b === 0x00) { // data
+          state = 'data'
+        } else if (b === 0xd8) { // SOI
           started = true
           state = 'ff'
+          this.push({ type: 'SOI', offset: offset })
         } else if (b === 0xe0) { // JF{IF,XX}-APP0
           state = 'app0'
         } else if (b === 0xda) { // SOS
@@ -81,43 +86,21 @@ module.exports = function () {
         }
         offset++
       } else if (state === 'jfif-app0') {
-        if (offset === 0 && b !== 0x46) {
-          return next(new Error(
-            'in jfif-app0, expected 0x46, received: ' + hexb(b)))
-        } else if (offset === 1 && b !== 0x00) {
-          return next(new Error(
-            'in jfif-app0, expected 0x00, received: ' + hexb(b)))
-        }
         if (++offset === 2) {
           pending = s1*256 + s2 - 7
         }
-      } else if (state === 'jfxx-app0') {
-        if (offset === 0 && b !== 0x58) {
-          return next(new Error(
-            'in jfxx-app0, expected 0x58, received: ' + hexb(b)))
-        } else if (offset === 0 && b !== 0x00) {
-          return next(new Error(
-            'in jfxx-app0, expected 0x00, received: ' + hexb(b)))
-        }
-        if (++offset === 2) {
-          pending = s1*256 + s2 - 7
-        }
-      } else if (state === 'app1' || state === 'app2'
-      || state === '0xfe' || state === 'dqt' || state === 'dht'
-      || state === 'dri' || state === 'sof' || state === 'sos') {
+      } else {
         if (offset === 0) s1 = b
         else if (offset === 1) s2 = b
         if (++offset === 2) {
           pending = s1*256 + s2 - 2
         }
-      } else {
-        //...
       }
       pos++
     }
     if (pos > 2 && !started) {
       return next(new Error('start of image not found'))
-    }
+    } else next()
   }
   function flushMarker (state, buffers) {
     var buf = buffers.length === 1 ? buffers[0] : Buffer.concat(buffers)
@@ -128,6 +111,7 @@ module.exports = function () {
       else if (buf[2] === 2) units = 'pixels per cm'
       this.push({
         type: 'JFIF',
+        offset: pos - 9,
         version: buf[0] + '.' + buf[1], // major.minor
         density: {
           units: units,
@@ -148,6 +132,7 @@ module.exports = function () {
 
       this.push({
         type: 'JFXX',
+        offset: pos - 9,
         thumbnail: {
           format: format
           //data: ...
@@ -156,34 +141,48 @@ module.exports = function () {
     } else if (state === 'app1') {
       var data = parseExif(buf)
       data.type = 'EXIF'
+      data.offset = pos - 2
       this.push(data)
     } else if (state === 'app2') {
       this.push({
-        type: 'FPXR'
+        type: 'FPXR',
+        offset: pos - 2
       })
     } else if (state === 'dqt') {
       this.push({
-        type: 'DQT'
+        type: 'DQT',
+        offset: pos - 2
       })
     } else if (state === 'dht') {
       this.push({
-        type: 'DHT'
+        type: 'DHT',
+        offset: pos - 2
+      })
+    } else if (state === 'dri') {
+      this.push({
+        type: 'DRI',
+        offset: pos - 2
       })
     } else if (state === 'sos') {
       this.push({
         type: 'SOS',
-        start: buf[7],
-        end: buf[8]
+        offset: pos - 2
       })
       return 'data'
     } else if (state === 'sof') {
       this.push({
         type: 'SOF',
+        offset: pos - 2,
         precision: buf[0],
         verticalLines: buf.readUInt16BE(1),
         horizontalLines: buf.readUInt16BE(3),
         H0: Math.floor(buf[7] / 16),
         V0: buf[7] % 16
+      })
+    } else if (state === 'eoi') {
+      this.push({
+        type: 'EOI',
+        offset: pos - 2
       })
     }
     return 'ff'
