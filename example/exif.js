@@ -1,3 +1,3 @@
-var exif = require('../')
-process.stdin.pipe(exif())
+var jpeg = require('../')
+process.stdin.pipe(jpeg())
   .on('data', console.log)

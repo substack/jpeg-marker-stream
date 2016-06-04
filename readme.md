@@ -1,4 +1,4 @@
-# parse-jpeg-stream
+# jpeg-marker-stream
 
 parse markers from a JPEG:
 
@@ -18,7 +18,7 @@ parse markers from a JPEG:
 # example
 
 ``` js
-var jpeg = require('parse-jpeg-stream')
+var jpeg = require('jpeg-marker-stream')
 process.stdin.pipe(jpeg())
   .on('data', console.log)
 ```
@@ -49,13 +49,10 @@ $ node exif.js < files/cactus.jpg 2>/dev/null | head -n20
      ImageHeight: 240,
 ```
 
-[1]: https://en.wikipedia.org/wiki/JPEG_File_Interchange_Format
-[2]: http://www.cipa.jp/std/documents/e/DC-008-2012_E.pdf
-
 # api
 
 ```
-var jpeg = require('parse-jpeg-stream')
+var jpeg = require('jpeg-marker-stream')
 ```
 
 ## var stream = jpeg()
@@ -172,3 +169,17 @@ end of image
 * `marker.start` - offset of first byte
 * `marker.end` - offset of last byte + 1
 
+# see also
+
+* https://en.wikipedia.org/wiki/JPEG_File_Interchange_Format
+* http://www.cipa.jp/std/documents/e/DC-008-2012_E.pdf
+
+# install
+
+```
+npm install jpeg-marker-stream
+```
+
+# license
+
+BSD

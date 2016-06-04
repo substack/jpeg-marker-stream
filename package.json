@@ -1,12 +1,21 @@
 {
-  "name": "lazy-exif-stream",
+  "name": "jpeg-marker-stream",
   "version": "1.0.0",
   "description": "parse markers from a JPEG, including EXIF data",
   "main": "index.js",
   "scripts": {
     "test": "tape test/*.js"
   },
-  "keywords": [],
+  "keywords": [
+    "jpeg",
+    "jpg",
+    "stream",
+    "parser",
+    "exif",
+    "jfif",
+    "jfxx",
+    "fpxr"
+  ],
   "author": "substack",
   "license": "BSD",
   "dependencies": {
@@ -18,10 +27,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/substack/parse-jpeg-stream.git"
+    "url": "git+https://github.com/substack/jpeg-marker-stream.git"
   },
   "bugs": {
-    "url": "https://github.com/substack/parse-jpeg-stream/issues"
+    "url": "https://github.com/substack/jpeg-marker-stream/issues"
   },
-  "homepage": "https://github.com/substack/parse-jpeg-stream#readme"
+  "homepage": "https://github.com/substack/jpeg-marker-stream#readme"
 }
