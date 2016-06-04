@@ -9,6 +9,7 @@ module.exports = function () {
   var s1 = 0, s2 = 0
   var state = 'ff'
   var started = false
+  var dqtSeq = 0
 
   return through.obj(write)
   function write (buf, enc, next) {
@@ -22,7 +23,7 @@ module.exports = function () {
           buffers = []
         }
         i += n - 1
-        pos += n
+        pos += n + 2
         continue
       }
       var b = buf[i]
@@ -152,9 +153,9 @@ module.exports = function () {
         end: pos - 2 + buf.length
       })
     } else if (state === 'dqt') {
-      var tables = [], j = 0
+      var tables = []
       for (var i = 1; i < buf.length; i += 0x41) {
-        if (buf[i-1] !== j++) {
+        if (buf[i-1] !== dqtSeq++) {
           return this.emit('error', new Error('unexpected DQT byte at ' +
             (offset+i-1) + ' (' + i + '): ' + buf[i-1]))
         }
