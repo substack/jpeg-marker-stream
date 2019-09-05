@@ -180,11 +180,17 @@ module.exports = function () {
         thumbnail: thumb
       })
     } else if (state === 'app1') {
-      var row = parseExif(buf)
-      row.type = 'EXIF'
-      row.start = pos - 2
-      row.end = pos + buf.length
-      this.push(row)
+
+      try {
+        var row = parseExif(buf)
+        row.type = 'EXIF'
+        row.start = pos - 2
+        row.end = pos + buf.length
+        this.push(row)
+      } catch(err) {
+        return this.emit('error', err)
+      }
+
     } else if (state === 'app2') {
       this.push({
         type: 'FPXR',
