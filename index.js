@@ -180,7 +180,6 @@ module.exports = function () {
         thumbnail: thumb
       })
     } else if (state === 'app1') {
-
       try {
         var row = parseExif(buf)
         row.type = 'EXIF'
@@ -190,7 +189,6 @@ module.exports = function () {
       } catch(err) {
         return this.emit('error', err)
       }
-
     } else if (state === 'app2') {
       this.push({
         type: 'FPXR',

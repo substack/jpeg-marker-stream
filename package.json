@@ -1,6 +1,6 @@
 {
   "name": "jpeg-marker-stream",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "parse markers from a JPEG, including EXIF data",
   "main": "index.js",
   "scripts": {
